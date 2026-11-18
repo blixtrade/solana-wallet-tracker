@@ -1,0 +1,13 @@
+{
+  "name": "solana-wallet-tracker",
+  "version": "1.0.0",
+  "description": "Solana wallet tracker for the terminal: follow any wallets and see every memecoin buy and sell with size and USD value, with Discord alerts.",
+  "type": "module",
+  "bin": { "wallet-tracker": "bin/wallet-tracker.js" },
+  "scripts": { "start": "node bin/wallet-tracker.js", "test": "node --test" },
+  "engines": { "node": ">=22" },
+  "keywords": ["solana", "wallet-tracker", "solana-wallet-tracker", "copy-trading", "smart-money", "whale-tracker", "memecoin", "pump-fun", "discord-alerts", "on-chain"],
+  "homepage": "https://blixvip.com/solana-wallet-tracker",
+  "repository": { "type": "git", "url": "git+https://github.com/blixtrade/solana-wallet-tracker.git" },
+  "license": "MIT"
+}
