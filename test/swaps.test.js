@@ -1,6 +1,6 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
-import { parseWalletTx } from "../lib/swaps.js";
+import { parseWalletTx, tokenInfo } from "../lib/swaps.js";
 
 const W = "Wallet1111111111111111111111111111111111111";
 const SOL = "So11111111111111111111111111111111111111112";
@@ -71,4 +71,29 @@ test("failed, empty and other wallets' transactions are ignored", () => {
   assert.equal(parseWalletTx(tx({ solAfter: 9 }), W), null);
   assert.equal(parseWalletTx(tx({ post: [bal("MEME", 10, "Stranger")], solAfter: 9 }), W), null);
   assert.equal(parseWalletTx(null, W), null);
+});
+
+test("token prices expire, so a long watch does not keep showing the first price", async (t) => {
+  const MINT = "PriceTtl11111111111111111111111111111111111";
+  let price = "0.001";
+  let calls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { calls++; return Response.json([{ baseToken: { address: MINT, symbol: "TTL", name: "Ttl" }, priceUsd: price, liquidity: { usd: 5000 } }]); };
+  mock.timers.enable({ apis: ["Date"], now: 1_800_000_000_000 });
+  t.after(() => { globalThis.fetch = realFetch; mock.timers.reset(); });
+
+  assert.equal((await tokenInfo([MINT])).get(MINT).priceUsd, 0.001);
+  price = "0.01";
+  mock.timers.tick(60_000);
+  assert.equal((await tokenInfo([MINT])).get(MINT).priceUsd, 0.001, "still cached after a minute");
+  assert.equal(calls, 1);
+  mock.timers.tick(5 * 60_000);
+  assert.equal((await tokenInfo([MINT])).get(MINT).priceUsd, 0.01, "refreshed after five minutes");
+  assert.equal(calls, 2);
+  // a failed refresh keeps the last known name and price
+  globalThis.fetch = async () => new Response("not found", { status: 404 });
+  mock.timers.tick(6 * 60_000);
+  const kept = (await tokenInfo([MINT])).get(MINT);
+  assert.equal(kept.symbol, "TTL");
+  assert.equal(kept.priceUsd, 0.01);
 });
