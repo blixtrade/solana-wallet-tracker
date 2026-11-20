@@ -41,6 +41,19 @@ test("stablecoin trades are priced in USD", () => {
   assert.equal(t.quoteAmount, 60);
 });
 
+test("a stablecoin trade that also moves some SOL for rent and tips is priced in USD", () => {
+  // 150 USDC for MEME, plus 0.00204 SOL rent for the new token account and a 0.001 SOL tip
+  const buy = parseWalletTx(tx({ pre: [bal(USDC, 200)], post: [bal(USDC, 50), bal("MEME", 1000)], solAfter: 10 - 0.000005 - 0.00204 - 0.001 }), W);
+  assert.equal(buy.type, "buy");
+  assert.equal(buy.quote, "USD");
+  assert.equal(buy.quoteAmount, 150);
+  // selling for USDC while closing two token accounts gets back about 0.004 SOL of rent
+  const sell = parseWalletTx(tx({ pre: [bal("MEME", 1000), bal(USDC, 0)], post: [bal(USDC, 150)], solAfter: 10 + 0.004 }), W);
+  assert.equal(sell.type, "sell");
+  assert.equal(sell.quote, "USD");
+  assert.equal(sell.quoteAmount, 150);
+});
+
 test("a token arriving with only rent paid is a transfer, not a buy", () => {
   assert.equal(parseWalletTx(tx({ post: [bal("MEME", 10)], solAfter: 10 - 0.00204 }), W).type, "transfer_in");
   assert.equal(parseWalletTx(tx({ pre: [bal("MEME", 10)], post: [bal("MEME", 0)], payer: "Someone" }), W).type, "transfer_out");
