@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { c, compact, footer, getTx, isAddress, main, pad, parseArgs, rpc, short, sleep } from "../lib/core.js";
 import { parseWalletTx, solUsd, tokenInfo } from "../lib/swaps.js";
+import { postWebhook } from "../lib/webhook.js";
 
 const HELP = `solana-wallet-tracker: watch Solana wallets and see every buy and sell
 
@@ -47,6 +48,7 @@ main(async () => {
   const minSol = Number(args["min-sol"]) || 0;
   const webhook = typeof args.webhook === "string" ? args.webhook : null;
   const nameOf = (w) => wallets.get(w) || short(w);
+  const webhookFailures = new Set();
 
   const show = async (trades, { notify }) => {
     if (!trades.length) return;
@@ -65,7 +67,15 @@ main(async () => {
       console.log(`${pad(when, 17)}  ${pad(c.bold(nameOf(t.wallet)), 14)}  ${verb}  ${pad(compact(t.tokenAmount), 9, true)} ${pad(c.bold(ticker), 12)}  ${pad(size, 13, true)}  ${pad(usdValue !== null ? "$" + compact(usdValue) : "", 9, true)}  ${c.dim(t.mint)}`);
       if (notify && webhook) {
         const text = `**${nameOf(t.wallet)}** ${t.type.replace("_", " ")} ${compact(t.tokenAmount)} **${ticker}**${size ? ` for ${size}` : ""}\n<https://solscan.io/tx/${t.signature}>`;
-        fetch(webhook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: text }) }).catch(() => {});
+        const result = await postWebhook(webhook, text);
+        if (!result.ok) {
+          const cause = result.status === null ? `network:${result.error}` : `http:${result.status}`;
+          if (!webhookFailures.has(cause)) {
+            webhookFailures.add(cause);
+            const reason = result.status === null ? result.error : `HTTP ${result.status}`;
+            console.error(c.dim(`Discord webhook failed: ${reason}`));
+          }
+        }
       }
     }
   };
